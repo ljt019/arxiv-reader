@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {Text, Box, useInput, useApp, useStdout} from 'ink';
 import Image from '../components/ui/image.js';
 import {ImagePart} from '../utils/extractPartsFromResult.js';
-import usePdfToMarkdown from '../services/docling.js';
+import {useDoclingPdfParts} from '../services/docling.js';
 
 const pdf_path =
 	'C:\\Users\\lucie\\Desktop\\reading_list\\to_read\\distilling_step_by_step.pdf';
@@ -12,7 +12,11 @@ export default function App() {
 	const {write} = useStdout();
 	const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-	const {data: parts, isLoading, error: pdfError} = usePdfToMarkdown(pdf_path);
+	const {
+		data: parts,
+		isLoading,
+		error: pdfError,
+	} = useDoclingPdfParts(pdf_path);
 
 	const imageParts = parts
 		?.filter(

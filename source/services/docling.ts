@@ -8,86 +8,112 @@ in my application code.
 import {exec as execCb} from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import {tryCatch} from '../types/try-catch.js';
 import {promisify} from 'util';
-const exec = promisify(execCb);
+import {useQuery, UseQueryOptions} from '@tanstack/react-query';
+import {tryCatch} from '../types/try-catch.js';
+import {
+	extractPartsFromResult,
+	ExtractedPart,
+} from '../utils/extractPartsFromResult.js';
 
-// Simple LRU cache to keep track of the last 5 processed PDFs
-type CacheEntry = {
+/*
+
+Types
+
+*/
+
+interface CacheEntry {
 	pdfPath: string;
 	outputPath: string;
 	timestamp: number;
-};
+}
 
-// Path to persistent cache directory and metadata file
+// Constants
 const CACHE_DIR = path.resolve(process.cwd(), '.docling_cache');
 const CACHE_METADATA_FILE = path.join(CACHE_DIR, 'cache_metadata.json');
 const MAX_CACHE_SIZE = 5;
+const exec = promisify(execCb);
 
-// Initialize the cache directory if it doesn't exist
-if (!fs.existsSync(CACHE_DIR)) {
-	fs.mkdirSync(CACHE_DIR, {recursive: true});
-}
+/* 
 
-// Load cache from disk or initialize an empty one
-let PDF_CACHE: CacheEntry[] = [];
-try {
-	if (fs.existsSync(CACHE_METADATA_FILE)) {
-		const cacheData = fs.readFileSync(CACHE_METADATA_FILE, 'utf8');
-		PDF_CACHE = JSON.parse(cacheData);
+Functions 
 
-		// Validate cache entries - remove any that no longer exist on disk
-		PDF_CACHE = PDF_CACHE.filter(entry => fs.existsSync(entry.outputPath));
+*/
 
-		// Update the cache file after validation
-		fs.writeFileSync(CACHE_METADATA_FILE, JSON.stringify(PDF_CACHE, null, 2));
+/**
+ * Initialize the docling cache
+ * @returns Array of cache entries loaded from disk
+ */
+function initializeCache(): CacheEntry[] {
+	// Initialize the cache directory if it doesn't exist
+	if (!fs.existsSync(CACHE_DIR)) {
+		fs.mkdirSync(CACHE_DIR, {recursive: true});
 	}
-} catch (error) {
-	// If we can't load the cache, start with an empty one
-	PDF_CACHE = [];
+
+	// Load cache from disk or initialize an empty one
+	let cache: CacheEntry[] = [];
+	try {
+		if (fs.existsSync(CACHE_METADATA_FILE)) {
+			const cacheData = fs.readFileSync(CACHE_METADATA_FILE, 'utf8');
+			cache = JSON.parse(cacheData);
+
+			// Validate cache entries - remove any that no longer exist on disk
+			cache = cache.filter(entry => fs.existsSync(entry.outputPath));
+
+			// Update the cache file after validation
+			saveCache(cache);
+		}
+	} catch (error) {
+		// If we can't load the cache, start with an empty one
+		console.error('Error loading cache metadata:', error);
+		cache = [];
+	}
+
+	return cache;
 }
 
-// Function to save cache to disk
-function saveCache() {
+/**
+ * Save cache to disk
+ * @param cache Array of cache entries to save
+ */
+function saveCache(cache: CacheEntry[]): void {
 	try {
-		fs.writeFileSync(CACHE_METADATA_FILE, JSON.stringify(PDF_CACHE, null, 2));
+		fs.writeFileSync(CACHE_METADATA_FILE, JSON.stringify(cache, null, 2));
 	} catch (error) {
 		console.error('Error saving cache metadata:', error);
 	}
 }
 
-export async function pdf_to_markdown(pdf_path: string) {
-	/*
-      You call the docling cli with a command like this `docling {pdf_path} --to md --output {output_path}`
-
-      The only issue with the docling cli is the only way to output the result is to save it to a file.
-      The cli doesn't support stdout.
-
-      We implement a persistent cache in the .docling_cache folder to keep the last 5 processed PDFs 
-      and their output paths. This way we don't have to process the same document repeatedly,
-      even between application restarts.
-  */
+/**
+ * Convert PDF to Markdown using the docling CLI
+ * @param pdfPath Path to the PDF file
+ * @returns Promise resolving to markdown content
+ */
+async function pdfToMarkdown(pdfPath: string): Promise<string> {
+	// Initialize cache if not already done
+	let pdfCache = initializeCache();
 
 	// Normalize the path for cache key consistency
-	const normalizedPath = path.normalize(pdf_path);
+	const normalizedPath = path.normalize(pdfPath);
 
 	// Check if the PDF is in the cache
-	const cacheIndex = PDF_CACHE.findIndex(
+	const cacheIndex = pdfCache.findIndex(
 		entry => path.normalize(entry.pdfPath) === normalizedPath,
 	);
+
 	if (cacheIndex !== -1) {
-		// We know this entry exists because we found a valid index
-		const cachedEntry = PDF_CACHE[cacheIndex]!;
+		// We found this PDF in the cache
+		const cachedEntry = pdfCache[cacheIndex]!;
 
 		// Check if the cached file still exists
 		if (fs.existsSync(cachedEntry.outputPath)) {
 			// Move this entry to the front of the cache (most recently used)
-			PDF_CACHE.splice(cacheIndex, 1);
+			pdfCache.splice(cacheIndex, 1);
 			cachedEntry.timestamp = Date.now();
-			PDF_CACHE.unshift(cachedEntry);
+			pdfCache.unshift(cachedEntry);
 
 			// Save the updated cache to disk
-			saveCache();
+			saveCache(pdfCache);
 
 			// Read from the cached file
 			let markdownPath = cachedEntry.outputPath;
@@ -106,8 +132,8 @@ export async function pdf_to_markdown(pdf_path: string) {
 		}
 
 		// If the file doesn't exist anymore, remove it from the cache
-		PDF_CACHE.splice(cacheIndex, 1);
-		saveCache();
+		pdfCache.splice(cacheIndex, 1);
+		saveCache(pdfCache);
 	}
 
 	// Generate a hash/safename for the PDF to use in the output path
@@ -119,24 +145,24 @@ export async function pdf_to_markdown(pdf_path: string) {
 	const outputName = `docling-${safeName}-${uniqueId}`;
 
 	// Store output in the persistent cache directory
-	const temp_file_path = path.join(CACHE_DIR, outputName + '.md');
-	const command = `docling "${normalizedPath}" --to md --output "${temp_file_path}"`;
+	const tempFilePath = path.join(CACHE_DIR, outputName + '.md');
+	const command = `docling "${normalizedPath}" --to md --output "${tempFilePath}"`;
 
 	const result = await tryCatch(
 		(async () => {
 			await exec(command);
 			// If output is a directory (e.g. with assets), find the .md inside
-			let markdownPath = temp_file_path;
-			const stat = fs.statSync(temp_file_path);
+			let markdownPath = tempFilePath;
+			const stat = fs.statSync(tempFilePath);
 			if (stat.isDirectory()) {
-				const files = fs.readdirSync(temp_file_path);
+				const files = fs.readdirSync(tempFilePath);
 				const mdFile = files.find(f => f.endsWith('.md'));
 				if (!mdFile) {
 					throw new Error(
-						`No markdown file found in directory ${temp_file_path}`,
+						`No markdown file found in directory ${tempFilePath}`,
 					);
 				}
-				markdownPath = path.join(temp_file_path, mdFile);
+				markdownPath = path.join(tempFilePath, mdFile);
 			}
 			const data = fs.readFileSync(markdownPath, 'utf8');
 			return data;
@@ -145,9 +171,9 @@ export async function pdf_to_markdown(pdf_path: string) {
 
 	if (result.error) {
 		// If processing failed, clean up any partial output
-		if (fs.existsSync(temp_file_path)) {
+		if (fs.existsSync(tempFilePath)) {
 			try {
-				fs.rmSync(temp_file_path, {recursive: true, force: true});
+				fs.rmSync(tempFilePath, {recursive: true, force: true});
 			} catch (cleanupError) {
 				// Ignore cleanup errors
 			}
@@ -156,15 +182,15 @@ export async function pdf_to_markdown(pdf_path: string) {
 	}
 
 	// Add this successful conversion to the cache
-	PDF_CACHE.unshift({
+	pdfCache.unshift({
 		pdfPath: normalizedPath,
-		outputPath: temp_file_path,
+		outputPath: tempFilePath,
 		timestamp: Date.now(),
 	});
 
 	// If cache exceeds maximum size, remove the least recently used entry and delete its file
-	if (PDF_CACHE.length > MAX_CACHE_SIZE) {
-		const evictedEntry = PDF_CACHE.pop();
+	if (pdfCache.length > MAX_CACHE_SIZE) {
+		const evictedEntry = pdfCache.pop();
 		if (evictedEntry && fs.existsSync(evictedEntry.outputPath)) {
 			try {
 				fs.rmSync(evictedEntry.outputPath, {recursive: true, force: true});
@@ -175,7 +201,7 @@ export async function pdf_to_markdown(pdf_path: string) {
 	}
 
 	// Save the updated cache to disk
-	saveCache();
+	saveCache(pdfCache);
 
 	// Return the processed markdown
 	return result.data!;
@@ -183,31 +209,59 @@ export async function pdf_to_markdown(pdf_path: string) {
 
 /*
 
-Hook to use the pdf_to_markdown function, with react-query
+Hooks
 
 */
 
-import {useQuery} from '@tanstack/react-query';
-import {
-	extractPartsFromResult,
-	ExtractedPart,
-} from '../utils/extractPartsFromResult.js'; // Import necessary types/functions
-
-function usePdfToMarkdown(pdf_path: string) {
-	// The hook now returns ExtractedPart[] or Error
-	return useQuery<ExtractedPart[], Error>({
-		queryKey: ['pdf-parts', pdf_path], // Changed queryKey to reflect the new data type
+/**
+ * React Query hook to convert a PDF to parsed Markdown parts
+ * @param pdfPath Path to the PDF file
+ * @param queryOptions Additional react-query options
+ * @returns React Query result object containing extracted parts, loading state, and error state
+ */
+function useDoclingPdfParts(
+	pdfPath: string | null,
+	queryOptions: Omit<
+		UseQueryOptions<
+			ExtractedPart[],
+			Error,
+			ExtractedPart[],
+			[string, string | null]
+		>,
+		'queryKey' | 'queryFn'
+	> = {},
+) {
+	return useQuery<
+		ExtractedPart[],
+		Error,
+		ExtractedPart[],
+		[string, string | null]
+	>({
+		queryKey: ['doclingPdfParts', pdfPath],
 		queryFn: async () => {
-			const markdownString = await pdf_to_markdown(pdf_path);
-			// Ensure markdownString is a string before processing.
-			// pdf_to_markdown should throw if it's not, but an extra check is safe.
-			if (typeof markdownString !== 'string') {
-				throw new Error('pdf_to_markdown did not return a string.');
+			if (!pdfPath) {
+				throw new Error('No PDF path provided');
 			}
-			const parts = extractPartsFromResult(markdownString);
-			return parts;
+			const markdownString = await pdfToMarkdown(pdfPath);
+			if (typeof markdownString !== 'string') {
+				throw new Error('pdfToMarkdown did not return a string.');
+			}
+			return extractPartsFromResult(markdownString);
 		},
+		enabled: !!pdfPath,
+		staleTime: 1000 * 60 * 60 * 24, // 24 hours
+		...queryOptions,
 	});
 }
 
-export default usePdfToMarkdown;
+export {
+	// Types
+	CacheEntry,
+	ExtractedPart,
+
+	// Functions
+	pdfToMarkdown,
+
+	// Hooks
+	useDoclingPdfParts,
+};
