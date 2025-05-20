@@ -12,5 +12,5 @@ $ npm install --global arxiv-reader
 $ arxiv-reader --help
 
   Usage
-    $ arxiv-reader
+    $ arxiv-reader --query <query>
 ```

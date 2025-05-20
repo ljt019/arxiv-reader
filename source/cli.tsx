@@ -7,7 +7,7 @@ import App from './app.js';
 const cli = meow(
 	`
 	Usage
-	  $ arxiv-reader <query>
+	  $ arxiv-reader --query <query>
 `,
 	{
 		importMeta: import.meta,
