@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {XMLParser} from 'fast-xml-parser';
 import {useQuery, UseQueryOptions} from '@tanstack/react-query';
+import {queryKeys} from '../constants/index.js';
 
 /*
 
@@ -237,7 +238,7 @@ function useArxivSearch(
 			Paper[],
 			Error,
 			Paper[],
-			[string, string | null, SearchOptions]
+			ReturnType<typeof queryKeys.arxiv.search>
 		>,
 		'queryKey' | 'queryFn'
 	> = {},
@@ -246,9 +247,9 @@ function useArxivSearch(
 		Paper[],
 		Error,
 		Paper[],
-		[string, string | null, SearchOptions]
+		ReturnType<typeof queryKeys.arxiv.search>
 	>({
-		queryKey: ['arxivSearch', query, options],
+		queryKey: queryKeys.arxiv.search(query, options),
 		queryFn: () =>
 			query ? searchArxiv(query, options) : Promise.resolve([] as Paper[]),
 		enabled: !!query,
@@ -266,12 +267,22 @@ function useArxivSearch(
 function useArxivPaper(
 	id: string | null,
 	queryOptions: Omit<
-		UseQueryOptions<Paper, Error, Paper, [string, string | null]>,
+		UseQueryOptions<
+			Paper,
+			Error,
+			Paper,
+			ReturnType<typeof queryKeys.arxiv.paper>
+		>,
 		'queryKey' | 'queryFn'
 	> = {},
 ) {
-	return useQuery<Paper, Error, Paper, [string, string | null]>({
-		queryKey: ['arxivPaper', id],
+	return useQuery<
+		Paper,
+		Error,
+		Paper,
+		ReturnType<typeof queryKeys.arxiv.paper>
+	>({
+		queryKey: queryKeys.arxiv.paper(id),
 		queryFn: () =>
 			id ? getPaperById(id) : Promise.reject(new Error('No ID provided')),
 		enabled: !!id,

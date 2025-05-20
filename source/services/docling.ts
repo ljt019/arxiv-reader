@@ -15,6 +15,7 @@ import {
 	extractPartsFromResult,
 	ExtractedPart,
 } from '../utils/extractPartsFromResult.js';
+import {queryKeys} from '../constants/index.js';
 
 /*
 
@@ -226,7 +227,7 @@ function useDoclingPdfParts(
 			ExtractedPart[],
 			Error,
 			ExtractedPart[],
-			[string, string | null]
+			ReturnType<typeof queryKeys.docling.pdfParts>
 		>,
 		'queryKey' | 'queryFn'
 	> = {},
@@ -235,9 +236,9 @@ function useDoclingPdfParts(
 		ExtractedPart[],
 		Error,
 		ExtractedPart[],
-		[string, string | null]
+		ReturnType<typeof queryKeys.docling.pdfParts>
 	>({
-		queryKey: ['doclingPdfParts', pdfPath],
+		queryKey: queryKeys.docling.pdfParts(pdfPath),
 		queryFn: async () => {
 			if (!pdfPath) {
 				throw new Error('No PDF path provided');
