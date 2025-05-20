@@ -57,6 +57,7 @@ export function Table<T>({
 	selectedIndex,
 	headerHeight = 1,
 	footer,
+	// @ts-ignore
 	highlightColumnIndex = 0,
 	onVisibleRangeChange,
 }: TableProps<T>) {
@@ -167,7 +168,7 @@ export function Table<T>({
 		const width = columnWidths[column.key] || 10;
 		const align = column.align || 'left';
 
-		// Apply highlighting if this is the selected row and highlight column
+		// Style based on selection
 		return (
 			<Box
 				width={width}
@@ -175,13 +176,17 @@ export function Table<T>({
 				key={column.key}
 				marginRight={2}
 			>
-				<Text
-					wrap="truncate"
-					backgroundColor={isSelected && isHighlightColumn ? 'blue' : undefined}
-					color={isSelected && isHighlightColumn ? 'white' : undefined}
-				>
-					{cellContent}
-				</Text>
+				{isSelected && isHighlightColumn ? (
+					<Text wrap="truncate" color="blue" bold>
+						{cellContent}
+					</Text>
+				) : isSelected ? (
+					<Text wrap="truncate">{cellContent}</Text>
+				) : (
+					<Text wrap="truncate" dimColor>
+						{cellContent}
+					</Text>
+				)}
 			</Box>
 		);
 	};
