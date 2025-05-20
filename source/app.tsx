@@ -1,6 +1,7 @@
 import React from 'react';
-import Index from './screens/index.js';
+import Library from './screens/library.js';
 
+// @ts-ignore
 export default function App({query}: {query: string}) {
-	return <Index query={query} />;
+	return <Library />;
 }

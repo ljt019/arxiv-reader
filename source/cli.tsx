@@ -26,10 +26,22 @@ const cli = meow(
 import {queryClient} from './constants/index.js';
 import {QueryClientProvider} from '@tanstack/react-query';
 
+// Clear the terminal and enable alternate screen buffer
+console.clear();
+process.stdout.write('\x1b[?1049h'); // Enter alternate screen buffer
+process.stdout.write('\x1b[?25l'); // Hide cursor
+
 const inkApp = render(
 	<QueryClientProvider client={queryClient}>
 		<App query={cli.flags.query ?? 'LLMs'} />
 	</QueryClientProvider>,
+	{
+		exitOnCtrlC: true,
+	},
 );
 
-await inkApp.waitUntilExit();
+// Restore normal terminal state when the app exits
+inkApp.waitUntilExit().then(() => {
+	process.stdout.write('\x1b[?25h'); // Show cursor
+	process.stdout.write('\x1b[?1049l'); // Exit alternate screen buffer
+});
