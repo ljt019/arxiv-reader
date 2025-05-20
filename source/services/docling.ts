@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import {promisify} from 'util';
 import {useQuery, UseQueryOptions} from '@tanstack/react-query';
-import {tryCatch} from '../types/try-catch.js';
+import {tryCatch} from '../utils/try-catch.js';
 import {
 	extractPartsFromResult,
 	ExtractedPart,
