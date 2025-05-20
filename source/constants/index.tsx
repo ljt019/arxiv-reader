@@ -54,11 +54,6 @@ export const docling_cache_directory = path.join(
 	'cache/docling',
 );
 
-export const local_papers_directory = path.join(
-	application_base_directory,
-	'localPapers',
-);
-
 export const read_paper_directory = path.join(
 	application_base_directory,
 	'readPapers',

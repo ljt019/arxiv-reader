@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import type {Paper as ArxivPaper} from './arxiv.js';
 import {ensureDirectories} from '../utils/ensureDirectories.js';
+import axios from 'axios';
 import {
 	unread_paper_directory,
 	read_paper_directory,
@@ -423,6 +424,72 @@ export async function removePaperTag({
 	});
 }
 
+/**
+ * Downloads a paper's PDF from the provided URL and saves it locally
+ * @param paper The arXiv paper object to download
+ * @returns Promise that resolves to the local paper after download
+ */
+export async function downloadPaper(paper: ArxivPaper): Promise<LocalPaper> {
+	// Check if paper already exists in either read or unread directories
+	for (const status of ['unread', 'read'] as PaperStatus[]) {
+		const metadata = await readMetadataFile(status);
+		if (metadata[paper.id]) {
+			console.log(`Paper ${paper.id} already exists locally`);
+			return convertMetadataToLocalPaper(paper.id, metadata[paper.id]!, status);
+		}
+	}
+
+	// If we get here, paper doesn't exist and we should download it
+	// Ensure directories exist
+	await ensureDirectories();
+
+	// Define target path in unread directory
+	const pdfPath = getPaperFilePath(paper.id, 'unread');
+
+	// Download the PDF
+	const response = await axios.get(paper.pdfUrl, {
+		responseType: 'arraybuffer',
+	});
+
+	// Write to disk
+	await fs.promises.writeFile(pdfPath, Buffer.from(response.data));
+
+	// Get file size
+	const stats = await fs.promises.stat(pdfPath);
+
+	// Create metadata
+	const metadata: LocalPaperMetadata = {
+		title: paper.title,
+		abstract: paper.abstract,
+		authors: paper.authors,
+		primaryCategory: paper.primaryCategory,
+		categories: paper.categories,
+		pdfUrl: paper.pdfUrl,
+		doi: paper.doi,
+		journalRef: paper.journalRef,
+		comment: paper.comment,
+
+		// Convert Date objects to ISO strings for storage
+		published: paper.published.toISOString(),
+		updated: paper.updated.toISOString(),
+
+		// Local-specific metadata
+		downloadedAt: Date.now(),
+		fileSize: stats.size,
+		starred: false,
+		archived: false,
+		tags: [],
+	};
+
+	// Update metadata file
+	const unreadMetadata = await readMetadataFile('unread');
+	unreadMetadata[paper.id] = metadata;
+	await writeMetadataFile('unread', unreadMetadata);
+
+	// Return as LocalPaper
+	return convertMetadataToLocalPaper(paper.id, metadata, 'unread');
+}
+
 /*
 
 Initialization
@@ -657,6 +724,32 @@ export function useRemovePaperTag(
 				queryKey: queryKeys.localPapers.detail(id),
 			});
 			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+		},
+		...mutationOptions,
+	});
+}
+
+/**
+ * React Query mutation hook to download a paper and save it locally
+ * @param mutationOptions Additional react-query mutation options
+ * @returns React Query mutation result
+ */
+export function useDownloadPaper(
+	mutationOptions: Omit<
+		UseMutationOptions<LocalPaper, Error, ArxivPaper, unknown>,
+		'mutationFn'
+	> = {},
+) {
+	const queryClient = useQueryClient();
+
+	return useMutation<LocalPaper, Error, ArxivPaper>({
+		mutationFn: downloadPaper,
+		onSuccess: localPaper => {
+			// Invalidate queries to refetch data
+			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+			queryClient.invalidateQueries({
+				queryKey: queryKeys.localPapers.detail(localPaper.id),
+			});
 		},
 		...mutationOptions,
 	});

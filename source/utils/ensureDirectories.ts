@@ -1,7 +1,6 @@
 import fs from 'fs';
 import {
 	docling_cache_directory,
-	local_papers_directory,
 	read_paper_directory,
 	unread_paper_directory,
 } from '../constants/index.js';
@@ -13,7 +12,6 @@ import {
 export const ensureDirectories = () => {
 	const directoriesToCreate = [
 		docling_cache_directory,
-		local_papers_directory,
 		read_paper_directory,
 		unread_paper_directory,
 	];
