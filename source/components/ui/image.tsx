@@ -4,6 +4,14 @@ import * as sixel from 'sixel';
 import {Text, useStdout, Box} from 'ink';
 import sharp from 'sharp';
 
+/*
+ * Props for the Image component that renders images using sixel encoding
+ *
+ * @param dataUri - Base64 encoded data URI containing the image data
+ * @param width - Optional width to resize image to (default: 800px)
+ * @param height - Optional height to resize image to (default: 600px)
+ * @param maxColors - Optional maximum number of colors to use in sixel output (default: 256)
+ */
 interface ImageProps {
 	dataUri: string;
 	width?: number;
@@ -11,12 +19,12 @@ interface ImageProps {
 	maxColors?: number;
 }
 
-const Image: React.FC<ImageProps> = ({
+function Image({
 	dataUri,
 	width = 800,
 	height = 600,
 	maxColors = 256,
-}) => {
+}: ImageProps): React.ReactElement {
 	const [error, setError] = useState<string | null>(null);
 	const {write} = useStdout();
 
@@ -85,6 +93,6 @@ const Image: React.FC<ImageProps> = ({
 
 	// Reserve minimal vertical space
 	return <Box height={1}></Box>;
-};
+}
 
 export default Image;

@@ -4,16 +4,15 @@ import {render} from 'ink';
 import meow from 'meow';
 import App from './app.js';
 
-// @ts-ignore: Who cares? xd
 const cli = meow(
 	`
 	Usage
-	  $ my-ink-cli
+	  $ arxiv-reader <query>
 `,
 	{
 		importMeta: import.meta,
 		flags: {
-			name: {
+			query: {
 				type: 'string',
 			},
 		},
@@ -25,7 +24,7 @@ import {QueryClientProvider} from '@tanstack/react-query';
 
 const inkApp = render(
 	<QueryClientProvider client={queryClient}>
-		<App />
+		<App query={cli.flags.query ?? 'LLMs'} />
 	</QueryClientProvider>,
 );
 
