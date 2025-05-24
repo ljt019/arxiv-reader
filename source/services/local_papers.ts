@@ -526,7 +526,8 @@ export function useLocalPapers(
 	return useQuery<LocalPaper[], Error, LocalPaper[], any>({
 		queryKey: queryKeys.localPapers.list(status),
 		queryFn: () => listLocalPapers(status),
-		staleTime: 1000 * 60 * 5, // 5 minutes
+		staleTime: 0, // Always consider data stale to ensure immediate refetch
+		gcTime: 0, // Don't cache results to ensure fresh data
 		...queryOptions,
 	});
 }
@@ -548,7 +549,8 @@ export function useLocalPaper(
 		queryKey: queryKeys.localPapers.detail(id),
 		queryFn: () => (id ? getLocalPaper(id) : Promise.resolve(undefined)),
 		enabled: !!id,
-		staleTime: 1000 * 60 * 5, // 5 minutes
+		staleTime: 0, // Always consider data stale to ensure immediate refetch
+		gcTime: 0, // Don't cache results to ensure fresh data
 		...queryOptions,
 	});
 }
@@ -569,8 +571,10 @@ export function useMarkPaperAsRead(
 	return useMutation<void, Error, string>({
 		mutationFn: markPaperAsRead,
 		onSuccess: () => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -592,8 +596,10 @@ export function useMarkPaperAsUnread(
 	return useMutation<void, Error, string>({
 		mutationFn: markPaperAsUnread,
 		onSuccess: () => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -614,12 +620,11 @@ export function useDeleteLocalPaper(
 
 	return useMutation<void, Error, string>({
 		mutationFn: deleteLocalPaper,
-		onSuccess: (_, paperId) => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(paperId),
-			});
+		onSuccess: () => {
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -640,12 +645,11 @@ export function useSetPaperStarred(
 
 	return useMutation<void, Error, {id: string; starred: boolean}>({
 		mutationFn: setPaperStarred,
-		onSuccess: (_, {id}) => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(id),
-			});
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+		onSuccess: () => {
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -666,12 +670,11 @@ export function useSetPaperArchived(
 
 	return useMutation<void, Error, {id: string; archived: boolean}>({
 		mutationFn: setPaperArchived,
-		onSuccess: (_, {id}) => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(id),
-			});
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+		onSuccess: () => {
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -692,12 +695,11 @@ export function useAddPaperTag(
 
 	return useMutation<void, Error, {id: string; tag: string}>({
 		mutationFn: addPaperTag,
-		onSuccess: (_, {id}) => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(id),
-			});
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+		onSuccess: () => {
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -718,12 +720,11 @@ export function useRemovePaperTag(
 
 	return useMutation<void, Error, {id: string; tag: string}>({
 		mutationFn: removePaperTag,
-		onSuccess: (_, {id}) => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(id),
-			});
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
+		onSuccess: () => {
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
 		},
 		...mutationOptions,
 	});
@@ -745,11 +746,32 @@ export function useDownloadPaper(
 	return useMutation<LocalPaper, Error, ArxivPaper>({
 		mutationFn: downloadPaper,
 		onSuccess: localPaper => {
-			// Invalidate queries to refetch data
-			queryClient.invalidateQueries({queryKey: queryKeys.localPapers.list()});
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.localPapers.detail(localPaper.id),
-			});
+			// Force immediate refetch of all local papers queries
+			queryClient.refetchQueries({queryKey: queryKeys.localPapers.base});
+
+			// Also invalidate all queries to ensure complete cache refresh
+			queryClient.invalidateQueries({queryKey: queryKeys.all});
+
+			// Optimistically update the cache with the new paper
+			queryClient.setQueryData(
+				queryKeys.localPapers.list('unread'),
+				(oldData: LocalPaper[] | undefined) => {
+					if (!oldData) return [localPaper];
+					// Only add if not already present
+					const exists = oldData.some(paper => paper.id === localPaper.id);
+					return exists ? oldData : [...oldData, localPaper];
+				},
+			);
+
+			// Also update the "all papers" cache
+			queryClient.setQueryData(
+				queryKeys.localPapers.list(),
+				(oldData: LocalPaper[] | undefined) => {
+					if (!oldData) return [localPaper];
+					const exists = oldData.some(paper => paper.id === localPaper.id);
+					return exists ? oldData : [...oldData, localPaper];
+				},
+			);
 		},
 		...mutationOptions,
 	});

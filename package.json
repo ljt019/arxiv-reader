@@ -23,6 +23,7 @@
 		"axios": "^1.9.0",
 		"fast-xml-parser": "^5.2.3",
 		"ink": "^4.1.0",
+		"lodash.debounce": "^4.0.8",
 		"meow": "^11.0.0",
 		"object-hash": "^3.0.0",
 		"react": "^18.2.0",
@@ -31,6 +32,7 @@
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^3.0.1",
+		"@types/lodash.debounce": "^4.0.9",
 		"@types/marked-terminal": "^6.1.1",
 		"@types/object-hash": "^3.0.6",
 		"@types/react": "^18.0.32",

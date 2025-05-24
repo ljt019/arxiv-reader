@@ -224,7 +224,7 @@ function SelectedPaperInfoContent() {
 			{/* Abstract with flex grow to fill remaining space */}
 			<Box flexGrow={1} marginTop={1} overflow="hidden">
 				<Text wrap="wrap">
-					Abstract: {truncateToCharCount(selectedPaper.abstract, 800)}
+					Abstract: {truncateToCharCount(selectedPaper.abstract, 650)}
 				</Text>
 			</Box>
 		</Box>
