@@ -41,9 +41,21 @@ import {
 	useSelectedPaper,
 } from '../contexts/SelectedPaperContext.js';
 
+import {useNavigation} from '../router.js';
+
 export default function Library() {
 	// Get terminal dimensions
 	const [termWidth, termHeight] = useStdoutDimensions();
+	const {navigate} = useNavigation();
+
+	// @ts-ignore
+	useInput((input, key) => {
+		if (input === 'f') {
+			navigate('paper-finder');
+		} else if (input === 'r') {
+			navigate('reader');
+		}
+	});
 
 	return (
 		<SelectedPaperProvider>
